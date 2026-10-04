@@ -7,6 +7,7 @@ import cors from "cors";
 
 import initDNS from "./config/dns-config.js";
 import connectDB from "./config/db-config.js";
+import authRouter from "./routes/authRoutes.js";
 
 // initialization
 const wwServer = express();
@@ -15,6 +16,9 @@ initDNS();
 // middleware
 wwServer.use(cors());
 wwServer.use(express.json());
+
+// routes
+wwServer.use("/api/auth", authRouter);
 
 // connect mongoDB
 await connectDB();

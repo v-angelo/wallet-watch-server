@@ -1,7 +1,8 @@
 import bcrypt from "bcryptjs";
 import User from "../models/userModel.js";
-import { Request, Response } from "express";
 import jwt from "jsonwebtoken";
+
+import type { Request, Response } from "express";
 
 // register user
 export const registerController = async (
@@ -51,7 +52,7 @@ export const registerController = async (
     // remove password before sending response
     const userData = newUser.toObject();
 
-    const { password: removedPassword, ...safeUserData } = userData;
+    const { password: __, ...safeUserData } = userData;
 
     // send response
     res.status(201).json({
@@ -59,22 +60,12 @@ export const registerController = async (
       message: "Registered Successfully!!",
       data: safeUserData,
     });
-
-    return;
   } catch (error: unknown) {
-    if (error instanceof Error) {
-      res.status(500).json({
-        success: false,
-        message: "Registration failed!",
-        data: error.message,
-      });
-    } else {
-      res.status(500).json({
-        success: false,
-        message: "Registration failed!",
-        data: error,
-      });
-    }
+    res.status(500).json({
+      success: false,
+      message: "Registration failed!",
+      data: error instanceof Error ? error.message : error,
+    });
   }
 };
 
@@ -82,7 +73,7 @@ export const registerController = async (
 export const loginController = async (
   req: Request,
   res: Response,
-): Promise<any> => {
+): Promise<void> => {
   console.log("Inside loginController");
 
   try {
@@ -90,37 +81,36 @@ export const loginController = async (
 
     // validation
     if (!email || !password) {
-      return res.status(400).json({
+      res.status(400).json({
         success: false,
         message: "Email and password are required",
       });
+
+      return;
     }
 
     // check user exists
-    const existingUser: any = await User.findOne({
+    const existingUser = await User.findOne({
       email,
     });
 
+    if (!existingUser) {
+      res.status(404).json({
+        success: false,
+        message: "Invalid email or password!",
+      });
+
+      return;
+    }
+
     if (existingUser.provider === "google") {
-      return res.status(400).json({
+      res.status(400).json({
         success: false,
         message:
           "This account uses Google Sign-In. Please continue with Google.",
       });
-    }
 
-    if (!existingUser) {
-      return res.status(404).json({
-        success: false,
-        message: "Invalid Email... Please Register to access Memoir!!",
-      });
-    }
-
-    if (!existingUser.isActive) {
-      return res.status(403).json({
-        success: false,
-        message: "Your account has been disabled",
-      });
+      return;
     }
 
     // compare passwords
@@ -130,14 +120,20 @@ export const loginController = async (
     );
 
     if (!isPasswordMatch) {
-      return res.status(401).json({
+      res.status(401).json({
         success: false,
-        message: "Invalid email/password!",
+        message: "Invalid email or password!",
       });
+
+      return;
     }
 
     // generate token
-    const jwtSecret: string = process.env.JWT_SECRET || "";
+    const jwtSecret = process.env.JWT_SECRET;
+
+    if (!jwtSecret) {
+      throw new Error("JWT_SECRET is not configured");
+    }
 
     const token = jwt.sign(
       {
@@ -153,7 +149,7 @@ export const loginController = async (
     // remove password before sending response
     const userData = existingUser.toObject();
 
-    const { password: removedPassword, ...safeUserData } = userData;
+    const { password: __, ...safeUserData } = userData;
 
     // response object
     const data = {
@@ -164,24 +160,14 @@ export const loginController = async (
     // send response
     res.status(200).json({
       success: true,
-      message: "Login succesful!",
+      message: "Login successful!",
       data,
     });
-
-    return;
   } catch (error: unknown) {
-    if (error instanceof Error) {
-      res.status(500).json({
-        success: false,
-        message: "Login failed!",
-        data: error.message,
-      });
-    } else {
-      res.status(500).json({
-        success: false,
-        message: "Login failed!",
-        data: error,
-      });
-    }
+    res.status(500).json({
+      success: false,
+      message: "Login failed!",
+      data: error instanceof Error ? error.message : error,
+    });
   }
 };
