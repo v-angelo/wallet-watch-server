@@ -4,7 +4,7 @@ import jwt from "jsonwebtoken";
 
 import type { Request, Response } from "express";
 
-// register user
+// register
 export const registerController = async (
   req: Request,
   res: Response,
@@ -69,7 +69,7 @@ export const registerController = async (
   }
 };
 
-// login user
+// login
 export const loginController = async (
   req: Request,
   res: Response,
