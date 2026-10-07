@@ -4,6 +4,7 @@ import "dotenv/config";
 import express from "express";
 import type { ErrorRequestHandler } from "express";
 import cors from "cors";
+import cookieParser from "cookie-parser";
 
 import initDNS from "./config/dns-config.js";
 import connectDB from "./config/db-config.js";
@@ -13,9 +14,15 @@ import authRouter from "./routes/authRoutes.js";
 const wwServer = express();
 initDNS();
 
-// middleware
-wwServer.use(cors());
+// middlewares
+wwServer.use(
+  cors({
+    origin: "http://localhost:4200",
+    credentials: true,
+  }),
+);
 wwServer.use(express.json());
+wwServer.use(cookieParser());
 
 // routes
 wwServer.use("/api/auth", authRouter);

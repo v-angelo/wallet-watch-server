@@ -95,7 +95,7 @@ export const loginController = async (
     });
 
     if (!existingUser) {
-      res.status(404).json({
+      res.status(401).json({
         success: false,
         message: "Invalid email or password!",
       });
@@ -151,17 +151,19 @@ export const loginController = async (
 
     const { password: __, ...safeUserData } = userData;
 
-    // response object
-    const data = {
-      user: safeUserData,
-      token,
-    };
+    // store JWT in HttpOnly cookie
+    res.cookie("walletwatch_token", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 24 * 60 * 60 * 1000, // 1 day
+    });
 
     // send response
     res.status(200).json({
       success: true,
       message: "Login successful!",
-      data,
+      data: safeUserData,
     });
   } catch (error: unknown) {
     res.status(500).json({
@@ -170,4 +172,57 @@ export const loginController = async (
       data: error instanceof Error ? error.message : error,
     });
   }
+};
+
+// get current user
+export const currentUserController = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  try {
+    if (!req.user) {
+      res.status(401).json({
+        success: false,
+        message: "Authentication required.",
+      });
+
+      return;
+    }
+
+    const user = await User.findById(req.user.userId).select("-password");
+
+    if (!user) {
+      res.status(404).json({
+        success: false,
+        message: "User not found.",
+      });
+
+      return;
+    }
+
+    res.status(200).json({
+      success: true,
+      data: user,
+    });
+  } catch (error: unknown) {
+    res.status(500).json({
+      success: false,
+      message: "Failed to retrieve user.",
+      data: error instanceof Error ? error.message : error,
+    });
+  }
+};
+
+// logout
+export const logoutController = (req: Request, res: Response): void => {
+  res.clearCookie("walletwatch_token", {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+  });
+
+  res.status(200).json({
+    success: true,
+    message: "Logged out successfully!",
+  });
 };
