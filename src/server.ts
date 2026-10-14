@@ -9,6 +9,7 @@ import cookieParser from "cookie-parser";
 import initDNS from "./config/dns-config.js";
 import connectDB from "./config/db-config.js";
 import authRouter from "./routes/authRoutes.js";
+import transactionRouter from "./routes/transactionRoutes.js";
 
 // initialization
 const wwServer = express();
@@ -26,6 +27,7 @@ wwServer.use(cookieParser());
 
 // routes
 wwServer.use("/api/auth", authRouter);
+wwServer.use("/api/transactions", transactionRouter);
 
 // connect mongoDB
 await connectDB();
