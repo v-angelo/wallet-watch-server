@@ -1,5 +1,6 @@
 import type { Request, Response } from "express";
 import Transaction from "../models/transactionModel.js";
+import mongoose from "mongoose";
 
 // create transaction
 export const createTransactionController = async (
@@ -195,6 +196,224 @@ export const getTransactionsController = async (
       success: false,
       message: "Failed to retrieve transactions.",
       data: error instanceof Error ? error.message : error,
+    });
+  }
+};
+
+// update transaction
+export const updateTransactionController = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  try {
+    if (!req.user) {
+      res.status(401).json({
+        success: false,
+        message: "Authentication required.",
+      });
+      return;
+    }
+
+    const { id } = req.params;
+
+    if (!mongoose.isValidObjectId(id)) {
+      res.status(400).json({
+        success: false,
+        message: "Invalid transaction ID.",
+      });
+      return;
+    }
+
+    const { title, amount, type, category, date, notes, paymentMethod } =
+      req.body;
+
+    // validate title
+    if (
+      typeof title !== "string" ||
+      title.trim().length < 2 ||
+      title.trim().length > 100
+    ) {
+      res.status(400).json({
+        success: false,
+        message: "Title must be between 2 and 100 characters.",
+      });
+      return;
+    }
+
+    // validate amount
+    if (
+      amount === undefined ||
+      amount === null ||
+      !Number.isFinite(Number(amount)) ||
+      Number(amount) <= 0
+    ) {
+      res.status(400).json({
+        success: false,
+        message: "Transaction amount must be greater than zero.",
+      });
+      return;
+    }
+
+    // validate type
+    if (type !== "income" && type !== "expense") {
+      res.status(400).json({
+        success: false,
+        message: "Transaction type must be income or expense.",
+      });
+      return;
+    }
+
+    // validate category
+    if (
+      typeof category !== "string" ||
+      !category.trim() ||
+      category.trim().length > 50
+    ) {
+      res.status(400).json({
+        success: false,
+        message: "Please provide a valid transaction category.",
+      });
+      return;
+    }
+
+    // validate date
+    if (
+      typeof date !== "string" ||
+      !date.trim() ||
+      Number.isNaN(Date.parse(date))
+    ) {
+      res.status(400).json({
+        success: false,
+        message: "Please provide a valid transaction date.",
+      });
+      return;
+    }
+
+    // validate notes
+    if (
+      notes !== undefined &&
+      (typeof notes !== "string" || notes.length > 500)
+    ) {
+      res.status(400).json({
+        success: false,
+        message: "Notes cannot exceed 500 characters.",
+      });
+      return;
+    }
+
+    // validate payment method
+    const allowedPaymentMethods = [
+      "cash",
+      "card",
+      "upi",
+      "bank transfer",
+      "other",
+    ];
+
+    if (
+      paymentMethod !== undefined &&
+      !allowedPaymentMethods.includes(paymentMethod)
+    ) {
+      res.status(400).json({
+        success: false,
+        message: "Please provide a valid payment method.",
+      });
+      return;
+    }
+
+    const updatedTransaction = await Transaction.findOneAndUpdate(
+      {
+        _id: id,
+        user: req.user.userId,
+      },
+      {
+        title: title.trim(),
+        amount: Number(amount),
+        type,
+        category: category.trim(),
+        date: new Date(date),
+        notes: notes?.trim() ?? "",
+        paymentMethod: paymentMethod ?? "other",
+      },
+      {
+        new: true,
+        runValidators: true,
+      },
+    );
+
+    if (!updatedTransaction) {
+      res.status(404).json({
+        success: false,
+        message: "Transaction not found.",
+      });
+      return;
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Transaction updated successfully!",
+      data: updatedTransaction,
+    });
+  } catch (error) {
+    console.error("Update transaction error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Failed to update transaction.",
+    });
+  }
+};
+
+// delete transaction
+export const deleteTransactionController = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  try {
+    if (!req.user) {
+      res.status(401).json({
+        success: false,
+        message: "Authentication required.",
+      });
+      return;
+    }
+
+    const { id } = req.params;
+
+    // validate transaction ID
+    if (!mongoose.isValidObjectId(id)) {
+      res.status(400).json({
+        success: false,
+        message: "Invalid transaction ID.",
+      });
+      return;
+    }
+
+    // delete only if the transaction belongs to the logged-in user
+    const deletedTransaction = await Transaction.findOneAndDelete({
+      _id: id,
+      user: req.user.userId,
+    });
+
+    if (!deletedTransaction) {
+      res.status(404).json({
+        success: false,
+        message: "Transaction not found.",
+      });
+      return;
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Transaction deleted successfully!",
+      data: deletedTransaction,
+    });
+  } catch (error) {
+    console.error("Delete transaction error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Failed to delete transaction.",
     });
   }
 };
