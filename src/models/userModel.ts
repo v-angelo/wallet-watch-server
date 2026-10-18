@@ -1,12 +1,18 @@
 import mongoose from "mongoose";
 
-interface IUser {
+export type Theme = "light" | "dark";
+
+export type DateFormat = "DD/MM/YYYY" | "MM/DD/YYYY" | "YYYY-MM-DD";
+
+export interface IUser {
   username: string;
   email: string;
   password: string;
   provider: "local" | "google";
   profilePic: string;
   currency: string;
+  preferredTheme: Theme;
+  dateFormat: DateFormat;
   role: "user" | "admin";
 }
 
@@ -46,13 +52,26 @@ const userSchema = new mongoose.Schema<IUser>(
 
     currency: {
       type: String,
-      default: "USD",
+      enum: ["INR", "USD", "EUR", "GBP", "CAD", "AUD"],
+      default: "INR",
+    },
+
+    preferredTheme: {
+      type: String,
+      enum: ["light", "dark"],
+      default: "light",
+    },
+
+    dateFormat: {
+      type: String,
+      enum: ["DD/MM/YYYY", "MM/DD/YYYY", "YYYY-MM-DD"],
+      default: "DD/MM/YYYY",
     },
 
     role: {
       type: String,
-      default: "user",
       enum: ["user", "admin"],
+      default: "user",
     },
   },
   {
@@ -60,6 +79,6 @@ const userSchema = new mongoose.Schema<IUser>(
   },
 );
 
-const User = mongoose.model("User", userSchema);
+const User = mongoose.model<IUser>("User", userSchema);
 
 export default User;

@@ -174,45 +174,6 @@ export const loginController = async (
   }
 };
 
-// get current user
-export const currentUserController = async (
-  req: Request,
-  res: Response,
-): Promise<void> => {
-  try {
-    if (!req.user) {
-      res.status(401).json({
-        success: false,
-        message: "Authentication required.",
-      });
-
-      return;
-    }
-
-    const user = await User.findById(req.user.userId).select("-password");
-
-    if (!user) {
-      res.status(404).json({
-        success: false,
-        message: "User not found.",
-      });
-
-      return;
-    }
-
-    res.status(200).json({
-      success: true,
-      data: user,
-    });
-  } catch (error: unknown) {
-    res.status(500).json({
-      success: false,
-      message: "Failed to retrieve user.",
-      data: error instanceof Error ? error.message : error,
-    });
-  }
-};
-
 // logout
 export const logoutController = (req: Request, res: Response): void => {
   res.clearCookie("walletwatch_token", {
