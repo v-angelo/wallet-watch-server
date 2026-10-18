@@ -103,6 +103,14 @@ export const loginController = async (
       return;
     }
 
+    if (!existingUser.isActive) {
+      res.status(403).json({
+        success: false,
+        message: "Your account is inactive. Please contact an administrator.",
+      });
+      return;
+    }
+
     if (existingUser.provider === "google") {
       res.status(400).json({
         success: false,

@@ -365,3 +365,76 @@ export const changePasswordController = async (
     });
   }
 };
+
+// deactivate the current user's account
+export const deactivateAccountController = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  try {
+    if (!req.user) {
+      res.status(401).json({
+        success: false,
+        message: "Authentication required.",
+      });
+      return;
+    }
+
+    const user = await User.findById(req.user.userId);
+
+    if (!user) {
+      res.status(404).json({
+        success: false,
+        message: "User not found.",
+      });
+      return;
+    }
+
+    if (!user.isActive) {
+      res.status(400).json({
+        success: false,
+        message: "Account is already inactive.",
+      });
+      return;
+    }
+
+    // prevent deactivation without recent password verification
+    if (user.provider === "local") {
+      const { currentPassword } = req.body;
+
+      if (
+        typeof currentPassword !== "string" ||
+        !currentPassword ||
+        !(await bcrypt.compare(currentPassword, user.password))
+      ) {
+        res.status(400).json({
+          success: false,
+          message: "Current password is incorrect.",
+        });
+        return;
+      }
+    }
+
+    user.isActive = false;
+    await user.save();
+
+    // clear the current session
+    res.clearCookie("walletwatch_token", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Account deactivated successfully.",
+    });
+  } catch (error: unknown) {
+    console.error("Account deactivation failed:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Failed to deactivate account.",
+    });
+  }
+};

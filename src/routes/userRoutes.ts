@@ -2,6 +2,7 @@ import { Router } from "express";
 
 import {
   changePasswordController,
+  deactivateAccountController,
   getCurrentUserController,
   updatePreferencesController,
   updateProfileController,
@@ -24,5 +25,8 @@ userRouter.patch("/me/preferences", updatePreferencesController);
 
 // change password
 userRouter.patch("/me/password", changePasswordController);
+
+// deactivate account
+userRouter.patch("/me/deactivate", deactivateAccountController);
 
 export default userRouter;

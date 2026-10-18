@@ -14,6 +14,7 @@ export interface IUser {
   preferredTheme: Theme;
   dateFormat: DateFormat;
   role: "user" | "admin";
+  isActive: boolean;
 }
 
 const userSchema = new mongoose.Schema<IUser>(
@@ -72,6 +73,11 @@ const userSchema = new mongoose.Schema<IUser>(
       type: String,
       enum: ["user", "admin"],
       default: "user",
+    },
+
+    isActive: {
+      type: Boolean,
+      default: true,
     },
   },
   {
