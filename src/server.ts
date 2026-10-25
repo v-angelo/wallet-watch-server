@@ -13,6 +13,7 @@ import authRouter from "./routes/authRoutes.js";
 import transactionRouter from "./routes/transactionRoutes.js";
 import userRouter from "./routes/userRoutes.js";
 import budgetRouter from "./routes/budgetRoutes.js";
+import sgRouter from "./routes/savingsGoalRoutes.js";
 
 // initialization
 const wwServer = express();
@@ -33,6 +34,7 @@ wwServer.use("/api/auth", authRouter);
 wwServer.use("/api/transactions", transactionRouter);
 wwServer.use("/api/users", userRouter);
 wwServer.use("/api/budgets", budgetRouter);
+wwServer.use("/api/savings-goals", sgRouter);
 
 // connect mongoDB
 await connectDB();
