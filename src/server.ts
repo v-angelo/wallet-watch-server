@@ -2,18 +2,20 @@
 import "dotenv/config";
 
 import express from "express";
-import type { ErrorRequestHandler } from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 
 import initDNS from "./config/dns-config.js";
 import connectDB from "./config/db-config.js";
 
+import type { ErrorRequestHandler } from "express";
+
 import authRouter from "./routes/authRoutes.js";
 import transactionRouter from "./routes/transactionRoutes.js";
 import userRouter from "./routes/userRoutes.js";
 import budgetRouter from "./routes/budgetRoutes.js";
 import sgRouter from "./routes/savingsGoalRoutes.js";
+import adminRouter from "./routes/adminRoutes.js";
 
 // initialization
 const wwServer = express();
@@ -35,6 +37,7 @@ wwServer.use("/api/transactions", transactionRouter);
 wwServer.use("/api/users", userRouter);
 wwServer.use("/api/budgets", budgetRouter);
 wwServer.use("/api/savings-goals", sgRouter);
+wwServer.use("/api/admin", adminRouter);
 
 // connect mongoDB
 await connectDB();

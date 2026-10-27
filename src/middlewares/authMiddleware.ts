@@ -32,8 +32,6 @@ export const authMiddleware = async (
 
     const decoded = jwt.verify(token, jwtSecret) as JwtPayload;
 
-    req.user = decoded;
-
     const user = await User.findById(decoded.userId).select(
       "_id role isActive",
     );
