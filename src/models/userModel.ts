@@ -9,6 +9,7 @@ export interface IUser {
   email: string;
   password: string;
   provider: "local" | "google";
+  googleId: string;
   profilePic: string;
   currency: string;
   preferredTheme: Theme;
@@ -44,6 +45,12 @@ const userSchema = new mongoose.Schema<IUser>(
       type: String,
       enum: ["local", "google"],
       default: "local",
+    },
+
+    googleId: {
+      type: String,
+      sparse: true,
+      unique: true,
     },
 
     profilePic: {

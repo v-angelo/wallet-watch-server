@@ -4,6 +4,132 @@ import jwt from "jsonwebtoken";
 
 import type { Request, Response } from "express";
 
+import { OAuth2Client } from "google-auth-library";
+
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+
+// google login
+export const googleLoginController = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  try {
+    const { credential } = req.body;
+
+    if (!credential) {
+      res.status(400).json({
+        success: false,
+        message: "Google credential is required",
+      });
+
+      return;
+    }
+
+    // verify Google ID token
+    const ticket = await googleClient.verifyIdToken({
+      idToken: credential,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+
+    const payload = ticket.getPayload();
+
+    if (!payload || !payload.sub || !payload.email || !payload.email_verified) {
+      res.status(401).json({
+        success: false,
+        message: "Invalid Google account information",
+      });
+
+      return;
+    }
+
+    const { sub: googleId, email, name, picture } = payload;
+
+    // find existing Google account
+    let existingUser = await User.findOne({ googleId });
+
+    if (!existingUser) {
+      // check whether email already belongs to another account
+      const emailUser = await User.findOne({ email });
+
+      if (emailUser) {
+        res.status(409).json({
+          success: false,
+          message:
+            "An account with this email already exists. Please sign in using your existing login method.",
+        });
+
+        return;
+      }
+
+      // create a new Google user
+      const username = (name || email.split("@")[0]).slice(0, 30);
+
+      existingUser = await User.create({
+        username,
+        email,
+        googleId,
+        profilePic: picture || "",
+        password: "",
+        provider: "google",
+      });
+    }
+
+    // check account status
+    if (!existingUser.isActive) {
+      res.status(403).json({
+        success: false,
+        message: "Your account is inactive. Please contact an administrator.",
+      });
+
+      return;
+    }
+
+    // generate WalletWatch JWT
+    const jwtSecret = process.env.JWT_SECRET;
+
+    if (!jwtSecret) {
+      throw new Error("JWT_SECRET is not configured");
+    }
+
+    const token = jwt.sign(
+      {
+        userId: existingUser._id,
+        role: existingUser.role,
+      },
+      jwtSecret,
+      {
+        expiresIn: "1d",
+      },
+    );
+
+    // remove password before sending response
+    const userData = existingUser.toObject();
+
+    const { password: __, ...safeUserData } = userData;
+
+    // store JWT in HttpOnly cookie
+    res.cookie("walletwatch_token", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 24 * 60 * 60 * 1000,
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Google login successful!",
+      data: safeUserData,
+    });
+  } catch (error: unknown) {
+    console.error("Google login error:", error);
+
+    res.status(401).json({
+      success: false,
+      message: "Google authentication failed!",
+    });
+  }
+};
+
 // register
 export const registerController = async (
   req: Request,
