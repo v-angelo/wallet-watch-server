@@ -1,4 +1,3 @@
-// imports
 import "dotenv/config";
 
 import express from "express";
@@ -24,7 +23,7 @@ initDNS();
 // middlewares
 wwServer.use(
   cors({
-    origin: "http://localhost:4200",
+    origin: process.env.CLIENT_URL || "http://localhost:4200",
     credentials: true,
   }),
 );
@@ -38,9 +37,6 @@ wwServer.use("/api/users", userRouter);
 wwServer.use("/api/budgets", budgetRouter);
 wwServer.use("/api/savings-goals", sgRouter);
 wwServer.use("/api/admin", adminRouter);
-
-// connect mongoDB
-await connectDB();
 
 // root route
 wwServer.get("/", (req, res) => {
@@ -56,14 +52,21 @@ const errorHandler: ErrorRequestHandler = (err, req, res, next) => {
 
   res.status(500).json({
     success: false,
-    message: err instanceof Error ? err.message : "Internal Server Error!",
+    message:
+      process.env.NODE_ENV === "production"
+        ? "Internal Server Error!"
+        : err instanceof Error
+          ? err.message
+          : "Internal Server Error!",
   });
 };
 
 wwServer.use(errorHandler);
 
-// start server
-const PORT = process.env.PORT || 3500;
+// connect MongoDB and start server
+const PORT = Number(process.env.PORT) || 3500;
+
+await connectDB();
 
 wwServer.listen(PORT, () => {
   console.log(`WalletWatch server running on port ${PORT}`);
