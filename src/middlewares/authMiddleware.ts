@@ -5,6 +5,7 @@ import User from "../models/userModel.js";
 interface JwtPayload {
   userId: string;
   role: string;
+  tokenVersion?: number;
 }
 
 export const authMiddleware = async (
@@ -33,7 +34,7 @@ export const authMiddleware = async (
     const decoded = jwt.verify(token, jwtSecret) as JwtPayload;
 
     const user = await User.findById(decoded.userId).select(
-      "_id role isActive",
+      "_id role isActive tokenVersion",
     );
 
     if (!user || !user.isActive) {
@@ -41,6 +42,16 @@ export const authMiddleware = async (
         success: false,
         message: "Account is inactive or no longer exists.",
       });
+      return;
+    }
+
+    // validate token version
+    if ((decoded.tokenVersion ?? 0) !== user.tokenVersion) {
+      res.status(401).json({
+        success: false,
+        message: "Your session has expired. Please log in again.",
+      });
+
       return;
     }
 

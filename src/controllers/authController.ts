@@ -2,6 +2,9 @@ import bcrypt from "bcryptjs";
 import User from "../models/userModel.js";
 import jwt from "jsonwebtoken";
 
+import crypto from "crypto";
+import { sendPasswordResetEmail } from "../services/emailService.js";
+
 import type { Request, Response } from "express";
 
 import { OAuth2Client } from "google-auth-library";
@@ -95,6 +98,7 @@ export const googleLoginController = async (
       {
         userId: existingUser._id,
         role: existingUser.role,
+        tokenVersion: existingUser.tokenVersion,
       },
       jwtSecret,
       {
@@ -273,6 +277,7 @@ export const loginController = async (
       {
         userId: existingUser._id,
         role: existingUser.role,
+        tokenVersion: existingUser.tokenVersion,
       },
       jwtSecret,
       {
@@ -320,4 +325,198 @@ export const logoutController = (req: Request, res: Response): void => {
     success: true,
     message: "Logged out successfully!",
   });
+};
+
+// forgot password
+export const forgotPasswordController = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  try {
+    const { email } = req.body;
+
+    if (!email || typeof email !== "string") {
+      res.status(400).json({
+        success: false,
+        message: "Email is required.",
+      });
+
+      return;
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+
+    // find an active local account
+    const user = await User.findOne({
+      email: normalizedEmail,
+      provider: "local",
+      isActive: true,
+    });
+
+    // generic response to prevent email enumeration
+    const successResponse = {
+      success: true,
+      message:
+        "If an account exists with that email address, you will receive a password reset link shortly.",
+    };
+
+    if (!user) {
+      res.status(200).json(successResponse);
+      return;
+    }
+
+    // generate a secure random token
+    const resetToken = crypto.randomBytes(32).toString("hex");
+
+    // hash the token before storing it
+    const hashedToken = crypto
+      .createHash("sha256")
+      .update(resetToken)
+      .digest("hex");
+
+    // set token expiration (15 minutes)
+    const resetExpires = new Date(Date.now() + 15 * 60 * 1000);
+
+    user.resetPasswordToken = hashedToken;
+    user.resetPasswordExpires = resetExpires;
+
+    await user.save();
+
+    // construct reset URL
+    const frontendUrl = process.env.FRONTEND_URL;
+
+    if (!frontendUrl) {
+      throw new Error("FRONTEND_URL is not configured");
+    }
+
+    const resetUrl = new URL("/reset-password", frontendUrl);
+
+    resetUrl.searchParams.set("token", resetToken);
+
+    // send reset email
+    try {
+      await sendPasswordResetEmail(normalizedEmail, resetUrl.toString());
+    } catch (emailError) {
+      // invalidate token if email delivery fails
+      await User.updateOne(
+        {
+          _id: user._id,
+          resetPasswordToken: hashedToken,
+        },
+        {
+          $unset: {
+            resetPasswordToken: 1,
+            resetPasswordExpires: 1,
+          },
+        },
+      );
+
+      throw emailError;
+    }
+
+    res.status(200).json(successResponse);
+  } catch (error: unknown) {
+    console.error("Forgot password error:", error);
+
+    res.status(500).json({
+      success: false,
+      message:
+        "Unable to process your password reset request. Please try again later.",
+    });
+  }
+};
+
+// reset password
+export const resetPasswordController = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  try {
+    const token = req.params.token;
+    const { password } = req.body;
+
+    // validate token
+    if (typeof token !== "string" || !/^[a-f0-9]{64}$/i.test(token)) {
+      res.status(400).json({
+        success: false,
+        message: "Invalid or expired password reset link.",
+      });
+
+      return;
+    }
+
+    // validate password
+    if (typeof password !== "string") {
+      res.status(400).json({
+        success: false,
+        message: "Password is required.",
+      });
+
+      return;
+    }
+
+    if (password.length < 8 || Buffer.byteLength(password, "utf8") > 72) {
+      res.status(400).json({
+        success: false,
+        message:
+          "Password must be at least 8 characters and no more than 72 bytes.",
+      });
+
+      return;
+    }
+
+    // hash the received token
+    const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
+
+    // hash the new password
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // validate token and update password
+    const updatedUser = await User.findOneAndUpdate(
+      {
+        resetPasswordToken: hashedToken,
+        resetPasswordExpires: { $gt: new Date() },
+        provider: "local",
+        isActive: true,
+      },
+      {
+        $set: {
+          password: hashedPassword,
+        },
+        $inc: {
+          tokenVersion: 1,
+        },
+        $unset: {
+          resetPasswordToken: 1,
+          resetPasswordExpires: 1,
+        },
+      },
+      {
+        new: true,
+      },
+    );
+
+    if (!updatedUser) {
+      res.status(400).json({
+        success: false,
+        message:
+          "Invalid or expired password reset link. Please request a new one.",
+      });
+
+      return;
+    }
+
+    res.status(200).json({
+      success: true,
+      message:
+        "Password reset successful! Please log in with your new password.",
+    });
+  } catch (error: unknown) {
+    console.error("Reset password error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Unable to reset password. Please try again later.",
+    });
+  }
 };

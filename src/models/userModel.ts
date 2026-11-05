@@ -8,6 +8,12 @@ export interface IUser {
   username: string;
   email: string;
   password: string;
+
+  resetPasswordToken?: string;
+  resetPasswordExpires?: Date;
+
+  tokenVersion: number;
+
   provider: "local" | "google";
   googleId: string;
   profilePic: string;
@@ -39,6 +45,23 @@ const userSchema = new mongoose.Schema<IUser>(
     password: {
       type: String,
       default: "",
+    },
+
+    resetPasswordToken: {
+      type: String,
+      default: undefined,
+      select: false,
+    },
+
+    resetPasswordExpires: {
+      type: Date,
+      default: undefined,
+      select: false,
+    },
+
+    tokenVersion: {
+      type: Number,
+      default: 0,
     },
 
     provider: {
